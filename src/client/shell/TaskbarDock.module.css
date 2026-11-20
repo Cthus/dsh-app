@@ -1,0 +1,296 @@
+/*
+ * 悬浮应用启动栏：在右侧区域垂直居中的一列图标。
+ *
+ * 显隐只由组件决定（右栏收起且用户没关掉），这里不再用全局属性选择器做第二道门 ——
+ * 两套判据迟早会不一致。颜色全部走语义 token：按钮是一个浮起的表面，因此 `border: 0`，
+ * 那一圈描边由 elevation 阴影自带。
+ */
+
+.dock {
+  position: absolute;
+  top: calc((100% + var(--dsh-frame-overlay-top, 0px)) / 2);
+  right: 10px;
+  translate: 0 -50%;
+  box-sizing: border-box;
+  max-height: calc(100% - var(--dsh-frame-overlay-top, 0px) - 16px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+  pointer-events: auto;
+  user-select: none;
+  opacity: 0;
+  transform: translateX(10px) scale(0.92);
+  transform-origin: right center;
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dock[data-visible='true'] {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.item {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-button-floating-fill);
+  box-shadow: var(--dsw-elevation-panel);
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  transition:
+    transform var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+@media (hover: hover) {
+  .item:hover {
+    background: var(--dsw-alias-button-floating-hover);
+    color: var(--dsw-alias-label-primary);
+    transform: translateY(-1px);
+  }
+}
+
+.item:active {
+  transform: scale(0.96);
+}
+
+/* work：运行中。描边换成品牌色 —— elevation 的 hairline 就是这一圈，换色不必加边框。 */
+.item[data-mode='work'] {
+  --dsw-elevation-stroke-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-button-floating-hover);
+  color: var(--dsw-alias-brand-primary);
+}
+
+/* close：当前平台不支持，弱化且不响应点击 */
+.item[data-mode='close'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.item:disabled {
+  transform: none;
+}
+
+.item:focus-visible,
+.wheelToggle:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: var(--dsw-radius-xs);
+}
+
+/* 无本地图标时的兜底字形：启动项 id 首字母 */
+.letter {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* 状态点：只标出需要用户注意的可用性 */
+.status {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  corner-shape: round;
+  pointer-events: none;
+}
+
+.status[data-status='failed'] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.status[data-status='unsupported'] {
+  background: var(--dsw-alias-state-idle-primary);
+}
+
+.wheel {
+  position: absolute;
+  top: calc((100% + var(--dsh-frame-overlay-top, 0px)) / 2);
+  right: 10px;
+  translate: 0 -50%;
+  width: var(--wheel-size);
+  height: var(--wheel-size);
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(10px) scale(0.96);
+  transform-origin: right center;
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wheel[data-visible='true'] {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.wheelGuide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--wheel-size) - 88px);
+  aspect-ratio: 1;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.82) rotate(-18deg);
+  transition:
+    opacity 180ms ease,
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wheel[data-open='true'] .wheelGuide {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1) rotate(0deg);
+}
+
+.wheelEntries {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wheelEntry {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.35);
+  transition:
+    opacity 140ms ease,
+    transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 260ms;
+  transition-delay: 0s, var(--wheel-delay), 260ms;
+}
+
+.wheel[data-open='true'] .wheelEntry {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+  transform: translate(var(--wheel-x), var(--wheel-y)) scale(1);
+  transition-delay: var(--wheel-delay), var(--wheel-delay), 0s;
+}
+
+.wheelEntry .item {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.wheelEntry .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.wheelToggle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dsw-alias-button-floating-fill);
+  box-shadow: var(--dsw-elevation-panel);
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition:
+    background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+@media (hover: hover) {
+  .wheelToggle:hover {
+    background: var(--dsw-alias-button-floating-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.wheelToggle[data-open='true'] {
+  --dsw-elevation-stroke-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-button-floating-hover);
+  color: var(--dsw-alias-brand-primary);
+}
+
+.wheelGlyph {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wheelGlyph > svg {
+  width: 20px;
+  height: 20px;
+}
+
+.wheelToggle[data-open='true'] .wheelGlyph {
+  transform: rotate(90deg);
+}
+
+@media (max-height: 480px) {
+  .wheel {
+    scale: 0.86;
+  }
+}
+
+@media (max-width: 560px) {
+  .wheel {
+    scale: 0.8;
+  }
+}
+
+@media (max-width: 560px) and (max-height: 480px) {
+  .wheel {
+    scale: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .dock,
+  .wheel,
+  .wheelGuide,
+  .wheelEntry,
+  .wheelToggle,
+  .wheelGlyph {
+    transition: none;
+  }
+}
