@@ -1,18 +1,17 @@
 ---
 name: dsh-taskbar-app-injection
-description: 在 DeepSeek Harness 右侧栏 Taskbar（App Dock）新增或审查启动项时使用。按当前实现说明 `LauncherDefinition` 注册表与 band 规则、internal/external 契约、出厂定义、Host open-in-app 启动与图标路由、Cordis 事件、显隐判据与验证命令。
+description: 在 DeepSeek Harness App Dock 中注册或审查扩展启动项时使用。说明 `LauncherDefinition` 注册表、internal/external 启动项、Host open-in-app 路由、Cordis 事件、显隐判据与验证命令。
 ---
 
 # DSH Taskbar（App Dock）应用注入指南
 
 本指南描述 `ui-sidebar-app` 中 App Dock 的**当前实现**，用于在右侧紧凑启动栏新增、修改或审查应用启动项。Taskbar 只是 48px 的启动器：它保存启动项、状态与事件，不持有业务页面，也不直接启动操作系统进程。
 
-加一个应用现在有两条路，选哪条取决于代码在哪：
+本插件不捆绑用户环境特有的应用。其他插件通过 `ctx.taskbar.register()` 注册启动项：
 
 | 情况 | 走法 |
 |---|---|
-| 产品自带的项，或要改出厂次序/平台 | 在 `src/client/apps/<app-id>/index.ts` 定义应用，在 `src/client/apps/index.ts` 登记 |
-| 外部包要加一项，或给已有 `id` 换一个实现 | `ctx.taskbar.register({ priority, item })` |
+| 外部插件注册应用 | `ctx.taskbar.register({ priority: 'extension', item })` |
 
 ## 代码地图
 
@@ -22,7 +21,7 @@ description: 在 DeepSeek Harness 右侧栏 Taskbar（App Dock）新增或审查
 |---|---|
 | `packages/client/ui-sidebar-app/src/client/contract/taskbar.ts` | 与外部交换的全部词汇：`LauncherItem`、`InternalAppItem`、`ExternalAppItem`、`LauncherDefinition`、`LauncherPriority`、`TaskbarState`、`TaskbarService` 面，以及 Cordis `taskbar/*` 事件声明。外部插件只依赖这一层 |
 | `packages/client/ui-sidebar-app/src/client/app-registry.ts` | `LauncherRegistry`：按 `id` 归并定义（`extension` > `builtin` > `fallback`），把在用的那批交给平台与次序规则 |
-| `packages/client/ui-sidebar-app/src/client/apps/index.ts` | 出厂启动项表 `DEFAULT_LAUNCHER_DEFINITIONS`，每条都是 `builtin` |
+| `packages/client/ui-sidebar-app/src/client/apps/index.ts` | 空的默认启动项表；具体应用由扩展注册 |
 | `packages/client/ui-sidebar-app/src/client/taskbar/platform.ts` | `detectPlatform()`、`filterLauncherItems()` |
 | `packages/client/ui-sidebar-app/src/client/taskbar/launch.ts` | 外部应用启动：先请 Host，再用启动项自己的 `launchUrl` 兜底 |
 | `packages/client/ui-sidebar-app/src/client/stores.ts` | 显隐、镜像来的活动面板、运行期改写（可用性/图标） |
@@ -96,7 +95,7 @@ interface ExternalAppItem extends LauncherItemBase {
   readonly args?: readonly string[]
   readonly cwd?: string
   readonly appId?: string   // 对应 Host open-in-app catalog id
-  readonly launchUrl?: string // 浏览器侧兜底：microsoft-edge:…、orpheus://
+  readonly launchUrl?: string // 浏览器侧兜底：自定义协议地址
 }
 
 interface LauncherDefinition {
@@ -109,47 +108,40 @@ interface LauncherDefinition {
 
 `subscribe(listener)` 的回调**不带参数** —— 先读 `getState()`，订阅只负责之后的变化。这是 `ObservableSnapshot` 的形状，也是渲染器把它绑成 `useTaskbar` 的前提。
 
-`DEFAULT_LAUNCHER_DEFINITIONS` 当前有两项：
-
-| id | label | kind | appId | executablePath | launchUrl | order | platforms |
-|---|---|---|---|---|---|---|---|
-| `edge` | Microsoft Edge | external | `edge` | `msedge.exe` | `microsoft-edge:newtab` | 10 | `windows` |
-| `netease-music` | 网易云音乐 | external | `cloudmusic` | `cloudmusic.exe` | `orpheus://` | 20 | `windows` |
+`DEFAULT_LAUNCHER_DEFINITIONS` 为空。安装方需要显示哪些应用，由安装方的扩展决定。
 
 `filterLauncherItems(items, platform)` 两个参数都是必填：先按 `platforms` 过滤，再按 `order` 升序排序；未写 `order` 的项以 `1000 + 注册下标` 排在后面。`detectPlatform()` 读取 `navigator.userAgentData.platform` / `userAgent`，无 `navigator` 时返回 `windows`。
 
-## 注入外部系统应用（以 Edge 为例）
+## 注册外部系统应用
 
 外部应用的启动完全由 Host 代理；渲染进程只发 HTTP 请求，不调用 `child_process`，也不把任意可执行文件路径直接交给系统。
 
-**1. Host 白名单。** 在 `packages/host/open-in-app/src/catalog.ts` 的 `OPEN_IN_APP_CATALOG` 中声明 id 与各平台 locator。Edge 当前声明覆盖 `darwin`、`win32`、`linux`：macOS 用 `macApp('Microsoft Edge.app')`，Windows 先查 `App Paths` 的 `msedge.exe` 再查 `Program Files`，Linux 用 `desktopSpec('microsoft-edge', cli('microsoft-edge'))`。只有此表中的 id 才会被 Host 接受；启动项里的 `executablePath` 只是契约字段，真正解析由 `resolver.ts` 完成。
+**1. Host 白名单。** 在 `packages/host/open-in-app/src/catalog.ts` 的 `OPEN_IN_APP_CATALOG` 中声明应用 id 与各平台 locator。只有 catalog 中的 id 才会被 Host 接受；启动项里的 `executablePath` 只是契约字段，真正解析由 `resolver.ts` 完成。
 
-**2. 展示名。** 若应用会出现在 open-in-app 菜单，向 `packages/client/ui-open-in-app/src/client/applications.ts` 的 `APP_LABEL_KEY` 和 `locales.ts` 的 `PRODUCT_NAMES` 加同名映射（当前已有 `edge: 'app.edge'`、`cloudmusic: 'app.cloudmusic'`）。Taskbar 自身的 `label` 来自启动项，不走这里。
+**2. 展示名。** 若应用会出现在 open-in-app 菜单，向 `packages/client/ui-open-in-app/src/client/applications.ts` 的 `APP_LABEL_KEY` 和 `locales.ts` 的 `PRODUCT_NAMES` 加同名映射。Taskbar 自身的 `label` 来自启动项，不走这里。
 
-**3. 定义。** 出厂项写进 `DEFAULT_LAUNCHER_DEFINITIONS`，外部包用 `ctx.taskbar.register()`；`appId` 必须与 catalog id 一致：
+**3. 定义。** 由应用扩展调用 `ctx.taskbar.register()`；`appId` 必须与 catalog id 一致：
 
 ```ts
-const edgeApp: LauncherDefinition = {
-  priority: 'builtin',
+const externalApp: LauncherDefinition = {
+  priority: 'extension',
   item: {
-    id: 'edge',
-    label: 'Microsoft Edge',
+    id: 'my-app',
+    label: 'My app',
     kind: 'external',
-    appId: 'edge',
-    executablePath: 'msedge.exe',
-    launchUrl: 'microsoft-edge:newtab',
-    protocolOnly: true,
+    appId: 'my-app',
+    executablePath: 'my-app',
+    launchUrl: 'my-app://',
     order: 10,
-    platforms: ['windows'],
   },
 }
 ```
 
-`platforms` 控制启动栏是否展示该项；Host catalog 支持更多平台不代表启动项必须全平台开放。当前 Edge 启动项仅在 Windows 出现。不要写 `availability`：它是运行期状态。
+`platforms` 控制启动栏是否展示该项。不要写 `availability`：它是运行期状态。
 
 App Dock 挂在覆盖整个 AppFrame 的 `shell.overlay` 层，但只在 Session 主视图（`activePanelId === null`）且右栏收起时显示。最多四个应用直接显示图标；五个及以上切换为可展开的圆形轮盘，按应用数量均匀分布到同心环。轮盘由中心按钮开关，Escape、点击外部区域或启动应用都会收起它。定位、状态和动画留在 `ui-sidebar-app` 的 CSS Module，不要改全局 overlay 样式。
 
-`protocolOnly: true` 表示启动项只打开自己的 `launchUrl`，不会把当前会话的工作区目录发送给 Host。Edge 用此设置打开 `microsoft-edge:newtab`；未设置的启动项仍先请求 Host，失败后才尝试 `launchUrl`。
+`protocolOnly: true` 表示启动项只打开自己的 `launchUrl`，不会把当前会话的工作区目录发送给 Host；未设置的启动项仍先请求 Host，失败后才尝试 `launchUrl`。
 
 **4. 点击链路。** 组件只上报 `activate(item)`；`TaskbarController` 对 `kind === 'external'` 调装配点给的启动端口，落到 `taskbar/launch.ts` 的 `launchExternalApp(item, ports)`：
 
@@ -161,7 +153,7 @@ App Dock 挂在覆盖整个 AppFrame 的 `shell.overlay` 层，但只在 Session
 
 启动项的 `launchUrl` 是这一层唯一的知识：不要回到「按 id 猜协议」的老路（见文末）。
 
-**5. 图标链路。** `TaskbarItem` 对有 `appId` 的外部项取 `${OPEN_IN_APP_ICON_PREFIX_ROUTE}/${encodeURIComponent(item.appId ?? item.id)}`，即 `open-in-app/icon/edge`；图标从可执行文件提取，不经过 `setItemIcon`。图片加载失败或没有图标时显示 `id` 首字母大写；`id` 完全空白时显示 `?`。`iconUrl` 变化会复位失败态，MCP 先给坏图再换好图不会永久停在首字母。
+**5. 图标链路。** `TaskbarItem` 对有 `appId` 的外部项取 `${OPEN_IN_APP_ICON_PREFIX_ROUTE}/${encodeURIComponent(item.appId ?? item.id)}`；图标从可执行文件提取，不经过 `setItemIcon`。图片加载失败或没有图标时显示 `id` 首字母大写；`id` 完全空白时显示 `?`。`iconUrl` 变化会复位失败态，MCP 先给坏图再换好图不会永久停在首字母。
 
 ## 注入内部面板应用
 
@@ -261,8 +253,8 @@ pnpm exec tsx scripts/verify-client-domain-graph.ts
 - `ctx.remote.openInApp.launch(item.id)`：没有此调用；当前是 `fetch` 到 Host open 路由。
 - `ctx.layout.closeSidebar?.()`：布局面没有这个方法；当前由 `selectPanel` 与右侧栏席位自行处理。
 - 只写 `executablePath` 就能启动：Host 只认 catalog 中已声明且解析成功的 id。
-- 按 id 猜协议（`netease-music` → `orpheus://`）：已改为读启动项自己的 `launchUrl`，启动栏不再认识具体应用。
+- 按 id 猜协议：已改为读启动项自己的 `launchUrl`，启动栏不再认识具体应用。
 - `ctx.reflect.provide('taskbar', …)`：现在是 `ctx.provide('taskbar', …)`。
 - 显隐只看 `.frame` 的 `data-rightbar-collapsed`，并用 CSS `:has()` 补刀：判据已收进 `shell/rightbar-collapsed.ts`，面板标记优先。
 - `localStorage` 键 `dsh.taskbar.visible`：现在是 `dsh.sidebar-app.v1`（旧键仍会被读一次做迁移）。
-- 把启动项配到 `cordis.patch.yml`：仓库当前没有这样的示例配置；出厂项在 `apps/index.ts`。
+- 把启动项配到 `cordis.patch.yml`：启动项由应用扩展通过 `ctx.taskbar.register()` 注册。

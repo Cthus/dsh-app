@@ -5,7 +5,7 @@
  * `ctx.taskbar` 服务。装配只发生在这里，每一块都按 ui-sidebar-right 的分法就位：
  *
  * - `contract/taskbar.ts` 是唯一跨边界的词汇（启动项、状态、注册定义、事件）；
- * - `app-registry.ts` 归并同一个 `id` 上的多条定义，`apps/` 放着出厂启动项；
+ * - `app-registry.ts` 归并同一个 `id` 上的多条定义，`apps/` 提供空的默认清单；
  * - `taskbar/` 负责平台过滤、排序和外部应用启动；
  * - `stores.ts` 持有显隐与运行期改写，`persistence.ts` 只落盘显隐；
  * - `service.ts` 把两者合成快照并提供 `ctx.taskbar`；

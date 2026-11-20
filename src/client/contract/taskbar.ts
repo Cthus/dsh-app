@@ -29,7 +29,7 @@ export type LauncherPlatform = 'windows' | 'macos' | 'linux'
 
 /** 启动项基础属性（所有字段均为只读，严禁外部直接修改） */
 export interface LauncherItemBase {
-  /** 稳定唯一标识符，如 'edge', 'netease-music' */
+  /** 稳定唯一标识符，由启动项提供方定义。 */
   readonly id: string
 
   /** 本地化展示名称 */
@@ -51,7 +51,7 @@ export interface LauncherItemBase {
 /** 内部应用：配置其点击时激活的面板标识（不可直接修改） */
 export interface InternalAppItem extends LauncherItemBase {
   readonly kind: 'internal'
-  /** 内部面板唯一标识，例如 'netease-music' */
+  /** 内部面板唯一标识，由面板插件定义。 */
   readonly panelId: string
   /**
    * 面板图标的 MCP 来源：`data:image/png;base64,...` 的图标字节，
@@ -63,16 +63,16 @@ export interface InternalAppItem extends LauncherItemBase {
 /** 外部应用：配置其在 Host 层启动的命令或路径（不可直接修改） */
 export interface ExternalAppItem extends LauncherItemBase {
   readonly kind: 'external'
-  /** 本地可执行文件路径或启动命令，如 'msedge.exe' */
+  /** 本地可执行文件路径或启动命令。 */
   readonly executablePath: string
   /** 启动命令行参数 */
   readonly args?: readonly string[]
   /** 启动工作目录（本地绝对路径） */
   readonly cwd?: string
-  /** 对应 Host open-in-app 的 app id（如 'edge', 'cloudmusic'） */
+  /** 对应 Host open-in-app catalog 的应用 id。 */
   readonly appId?: string
   /**
-   * 浏览器直接可用的启动地址，如 `microsoft-edge:newtab` 或 `orpheus://`。
+   * 浏览器直接可用的启动地址或系统协议。
    *
    * 这是启动栏自己的兜底手段，不经过 Host：当没有工作区目录可交给
    * `open-in-app/open`、或 Host 拒绝时，用它把请求交给系统协议处理器。

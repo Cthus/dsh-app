@@ -13,13 +13,20 @@ import { createTaskbarStore } from '../src/client/stores.ts'
 import { TaskbarController } from '../src/client/service.ts'
 import { detectPlatform, filterLauncherItems } from '../src/client/taskbar/platform.ts'
 import { DEFAULT_LAUNCHER_DEFINITIONS } from '../src/client/apps/index.ts'
-import type { InternalAppItem, LauncherDefinition } from '../src/client/contract/taskbar.ts'
+import type { ExternalAppItem, InternalAppItem, LauncherDefinition } from '../src/client/contract/taskbar.ts'
 
 const MUSIC: InternalAppItem = {
   id: 'netease-music',
   label: '网易云音乐',
   kind: 'internal',
   panelId: 'netease-music',
+}
+
+const EXTERNAL: ExternalAppItem = {
+  id: 'example-app',
+  label: 'Example app',
+  kind: 'external',
+  executablePath: 'example-app',
 }
 
 afterEach(() => {
@@ -52,10 +59,9 @@ function stubLocalStorage() {
   return store
 }
 
-it('publishes the shipped launchers, filtered by platform and ordered', () => {
+it('starts without environment-specific launchers', () => {
   const { controller } = bench(DEFAULT_LAUNCHER_DEFINITIONS)
-  // 测试环境没有 navigator，平台探测回答 windows，两条出厂项都留下。
-  expect(controller.getState().items.map(item => item.id)).toEqual(['edge', 'netease-music'])
+  expect(controller.getState().items).toEqual([])
   expect(controller.getState().activePanelId).toBeNull()
   expect(controller.getState().visible).toBe(true)
 })
@@ -128,13 +134,13 @@ it('toggles by panelId even when that panel registered no launcher', () => {
 })
 
 it('sends an external launcher to the launch port instead of a panel request', () => {
-  const { controller, calls } = bench(DEFAULT_LAUNCHER_DEFINITIONS)
-  const edge = controller.getState().items[0]
+  const { controller, calls } = bench([{ item: EXTERNAL }])
+  const external = controller.getState().items[0]
 
-  expect(edge?.kind).toBe('external')
-  if (edge !== undefined) controller.activate(edge)
+  expect(external?.kind).toBe('external')
+  if (external !== undefined) controller.activate(external)
 
-  expect(calls).toEqual(['launch:edge'])
+  expect(calls).toEqual(['launch:example-app'])
 })
 
 it('wakes the service behind a panel before asking for it', () => {
@@ -166,15 +172,15 @@ it('records availability without inventing a launcher', () => {
 })
 
 it('stores an MCP icon on the internal launcher that owns it', () => {
-  const { controller } = bench([{ item: MUSIC }, ...DEFAULT_LAUNCHER_DEFINITIONS])
+  const { controller } = bench([{ item: MUSIC }, { item: EXTERNAL }])
 
   controller.setItemIcon(MUSIC.id, 'data:image/png;base64,AAAA')
   const internal = controller.getState().items.find(item => item.id === MUSIC.id)
   expect(internal?.kind === 'internal' ? internal.iconUrl : undefined).toBe('data:image/png;base64,AAAA')
 
   // 外部图标来自 Host 的可执行文件提取，因此它不带 iconUrl。
-  controller.setItemIcon('edge', 'data:image/png;base64,BBBB')
-  expect(controller.getState().items.find(item => item.id === 'edge')).not.toHaveProperty('iconUrl')
+  controller.setItemIcon(EXTERNAL.id, 'data:image/png;base64,BBBB')
+  expect(controller.getState().items.find(item => item.id === EXTERNAL.id)).not.toHaveProperty('iconUrl')
 })
 
 it('registers a launcher through the face and drops it on the returned disposer', () => {

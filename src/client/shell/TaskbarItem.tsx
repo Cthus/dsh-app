@@ -57,7 +57,7 @@ function iconSourceOf(item: LauncherItem): string | undefined {
 
 /**
  * 无图标可用时的兜底字形：取启动项 id 的首字母（大写）。
- * @param id - 启动项稳定标识符，如 `edge`、`netease-music`。
+ * @param id - 启动项提供方定义的稳定标识符。
  * @returns 单字符占位，id 为空时回退为 `?`。
  */
 function fallbackLetter(id: string): string {

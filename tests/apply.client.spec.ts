@@ -128,11 +128,10 @@ describe('ui-sidebar-app browser half', () => {
     expect(inject).toEqual(['slots', 'layout', 'locale', 'sessions', 'uiSession'])
   })
 
-  it('provides the taskbar face over the shipped launchers', async () => {
+  it('provides an empty taskbar face for extensions to populate', async () => {
     const { ctx } = await bench()
     const state = ctx.taskbar.getState()
-    // 这一条测试环境里没有 `navigator`，平台探测答 windows，两条出厂启动项都留下。
-    expect(state.items.map(item => item.id)).toEqual(['edge', 'netease-music'])
+    expect(state.items).toEqual([])
     expect(state.activePanelId).toBeNull()
     expect(state.visible).toBe(true)
   })
@@ -184,6 +183,7 @@ describe('ui-sidebar-app browser half', () => {
 
   it('hands an external click to the Host with the selected Session\'s directory', async () => {
     const { ctx, current } = await bench()
+    ctx.taskbar.register({ item: EDGE })
     const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', fetchSpy)
     current.set({ key: SESSION })
@@ -203,6 +203,7 @@ describe('ui-sidebar-app browser half', () => {
 
   it('marks an external click failed when no directory and no protocol handler answer', async () => {
     const { ctx } = await bench()
+    ctx.taskbar.register({ item: EDGE })
     const fetchSpy = vi.fn<typeof fetch>()
     vi.stubGlobal('fetch', fetchSpy)
 

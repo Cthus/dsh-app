@@ -15,15 +15,16 @@ with a compatible DSH workspace to run.
 - Displays up to four app icons directly; five or more apps use an expandable
   circular wheel.
 - Closes the wheel on Escape, outside click, or app activation.
-- Provides `ctx.taskbar` and the launcher registration API for extensions.
-- Opens Edge directly in a new tab.
+- Ships no environment-specific app definitions. Extensions register launchers
+  through `ctx.taskbar.register()`.
 
 ## Source layout
 
 - `src/client/contract/taskbar.ts` defines launcher items, registration, state,
   service methods, and Cordis events.
 - `src/client/app-registry.ts` merges definitions and applies platform ordering.
-- `src/client/apps/` contains the built-in app definitions.
+- `src/client/apps/` exports an empty default list; environment-specific apps
+  belong in separate extensions.
 - `src/client/taskbar/` handles platform selection and external app launching.
 - `src/client/shell/` renders the dock and wheel with module-scoped styles.
 - `skills/dsh-taskbar-app-injection/SKILL.md` documents adding launcher apps.

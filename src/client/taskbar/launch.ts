@@ -27,7 +27,7 @@ export interface ExternalLaunchPorts {
 }
 
 /**
- * 把启动项交给系统协议处理器（`microsoft-edge:`、`orpheus://` 之类）。
+ * 把启动项交给系统协议处理器。
  *
  * 浏览器无法得知自定义协议是否真的被接管：`window.open` 返回 null 既可能是
  * 被弹窗策略拦截，也可能是协议处理器正常接手。因此这里只负责发出请求，
